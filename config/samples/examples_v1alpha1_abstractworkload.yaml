@@ -1,0 +1,6 @@
+apiVersion: examples.itamar.marom/v1alpha1
+kind: AbstractWorkload
+metadata:
+  name: abstractworkload-sample
+spec:
+  # TODO(user): Add fields here

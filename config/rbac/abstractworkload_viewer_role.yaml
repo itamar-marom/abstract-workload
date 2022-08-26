@@ -1,0 +1,20 @@
+# permissions for end users to view abstractworkloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: abstractworkload-viewer-role
+rules:
+- apiGroups:
+  - examples.itamar.marom
+  resources:
+  - abstractworkloads
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - examples.itamar.marom
+  resources:
+  - abstractworkloads/status
+  verbs:
+  - get

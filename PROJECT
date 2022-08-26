@@ -1,0 +1,16 @@
+domain: itamar.marom
+layout:
+- go.kubebuilder.io/v3
+projectName: abstract-workload
+repo: itamar.marom/abstractworkload
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: itamar.marom
+  group: examples
+  kind: AbstractWorkload
+  path: itamar.marom/abstractworkload/api/v1alpha1
+  version: v1alpha1
+version: "3"
