@@ -27,7 +27,7 @@ import (
 // AbstractWorkloadSpec defines the desired state of AbstractWorkload
 type AbstractWorkloadSpec struct {
 	// +required
-	Replicas int `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 	// +required
 	ContainerImage string `json:"containerImage"`
 	// +required
@@ -75,14 +75,19 @@ const (
 	Stateful
 )
 
+const (
+	StrStateless = "stateless"
+	StrStateful  = "stateful"
+)
+
 func (w WorkloadType) String() string {
 	switch w {
 	case Stateless:
-		return "stateless"
+		return StrStateless
 	case Stateful:
-		return "stateful"
+		return StrStateful
 	}
-	return "unknown"
+	return ""
 }
 
 type CrossNamespaceObjectReference struct {

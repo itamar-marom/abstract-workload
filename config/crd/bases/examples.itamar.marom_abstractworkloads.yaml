@@ -50,6 +50,7 @@ spec:
               containerImage:
                 type: string
               replicas:
+                format: int32
                 type: integer
               workloadType:
                 format: int64
