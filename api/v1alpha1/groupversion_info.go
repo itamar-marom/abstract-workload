@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1alpha1 contains API Schema definitions for the examples v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=examples.itamar.marom
+// +kubebuilder:object:generate=true
+// +groupName=examples.itamar.marom
 package v1alpha1
 
 import (

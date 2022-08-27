@@ -74,42 +74,57 @@ func (r *AbstractWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	var workloadKind string
 	var workloadAPIVersion string
+	labels := map[string]string{
+		"name": req.NamespacedName.Name,
+		"type": obj.Spec.WorkloadType.String(),
+	}
 	switch obj.Spec.WorkloadType.String() {
 	case examplesv1alpha1.StrStateless:
 		log.Info("Stateless application, creating Deployment")
 		deployment := &v1.Deployment{}
 		if err := r.Get(ctx, req.NamespacedName, deployment); err != nil {
-			deployment.ObjectMeta.Namespace = req.NamespacedName.Namespace
-			deployment.ObjectMeta.Name = req.NamespacedName.Name
+			deployment = &v1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      req.NamespacedName.Name,
+					Namespace: req.NamespacedName.Namespace,
+					Labels:    labels,
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: obj.APIVersion,
+						Kind:       obj.Kind,
+						Name:       obj.Name,
+						UID:        obj.UID,
+					}},
+				},
+				Spec: v1.DeploymentSpec{
+					Replicas: obj.Spec.Replicas,
+					Selector: &metav1.LabelSelector{MatchLabels: labels},
+					Template: v12.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: labels},
+						Spec: v12.PodSpec{
+							Containers: []v12.Container{{
+								Name:  req.NamespacedName.Name,
+								Image: obj.Spec.ContainerImage,
+							}},
+						},
+					},
+				},
+			}
 
+			if err := r.Client.Create(ctx, deployment); err != nil {
+				log.Error(err, "Creating Deployment object")
+				return ctrl.Result{}, err
+			}
+		} else {
 			deployment.Spec.Replicas = obj.Spec.Replicas
 			deployment.Spec.Template.Spec.Containers = []v12.Container{{
 				Name:  req.NamespacedName.Name,
 				Image: obj.Spec.ContainerImage,
 			}}
 
-			deployment.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion: obj.APIVersion,
-				Kind:       obj.Kind,
-				Name:       obj.Name,
-				UID:        obj.UID,
-			}}
-
-			if err := r.Client.Create(ctx, deployment); err != nil {
-				log.Error(err, "Creating Deployment object")
+			if err := r.Client.Update(ctx, deployment); err != nil {
+				log.Error(err, "Updating Deployment object")
 				return ctrl.Result{}, err
 			}
-		}
-
-		deployment.Spec.Replicas = obj.Spec.Replicas
-		deployment.Spec.Template.Spec.Containers = []v12.Container{{
-			Name:  req.NamespacedName.Name,
-			Image: obj.Spec.ContainerImage,
-		}}
-
-		if err := r.Client.Update(ctx, deployment); err != nil {
-			log.Error(err, "Updating Deployment object")
-			return ctrl.Result{}, err
 		}
 
 		workloadKind = deployment.Kind
@@ -118,61 +133,74 @@ func (r *AbstractWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		log.Info("Stateful application, deploying StatefulSet")
 		statefulSet := &v1.StatefulSet{}
 		if err := r.Get(ctx, req.NamespacedName, statefulSet); err != nil {
-			statefulSet.ObjectMeta.Namespace = req.NamespacedName.Namespace
-			statefulSet.ObjectMeta.Name = req.NamespacedName.Name
-
-			statefulSet.Spec.Replicas = obj.Spec.Replicas
-			statefulSet.Spec.Template.Spec.Containers = []v12.Container{{
-				Name:  req.NamespacedName.Name,
-				Image: obj.Spec.ContainerImage,
-			}}
-			pvc := &v12.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{Name: req.NamespacedName.Name},
-				Spec: v12.PersistentVolumeClaimSpec{
-					AccessModes: []v12.PersistentVolumeAccessMode{v12.ReadWriteOnce},
-					Resources: v12.ResourceRequirements{
-						Requests: map[v12.ResourceName]resource.Quantity{
-							v12.ResourceStorage: *resource.NewQuantity(1, resource.BinarySI),
+			statefulSet = &v1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      req.NamespacedName.Name,
+					Namespace: req.NamespacedName.Namespace,
+					Labels:    labels,
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: obj.APIVersion,
+						Kind:       obj.Kind,
+						Name:       obj.Name,
+						UID:        obj.UID,
+					}},
+				},
+				Spec: v1.StatefulSetSpec{
+					Replicas: obj.Spec.Replicas,
+					Selector: &metav1.LabelSelector{MatchLabels: labels},
+					Template: v12.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: labels},
+						Spec: v12.PodSpec{
+							Containers: []v12.Container{{
+								Name:  req.NamespacedName.Name,
+								Image: obj.Spec.ContainerImage,
+							}},
 						},
 					},
-					StorageClassName: nil,
+					VolumeClaimTemplates: []v12.PersistentVolumeClaim{{
+						ObjectMeta: metav1.ObjectMeta{Name: req.NamespacedName.Name},
+						Spec: v12.PersistentVolumeClaimSpec{
+							AccessModes: []v12.PersistentVolumeAccessMode{v12.ReadWriteOnce},
+							Resources: v12.ResourceRequirements{
+								Requests: map[v12.ResourceName]resource.Quantity{
+									v12.ResourceStorage: *resource.NewQuantity(1, resource.BinarySI),
+								},
+							},
+							StorageClassName: nil,
+						},
+					}},
 				},
 			}
-			statefulSet.Spec.VolumeClaimTemplates = []v12.PersistentVolumeClaim{*pvc}
-
-			statefulSet.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion: obj.APIVersion,
-				Kind:       obj.Kind,
-				Name:       obj.Name,
-				UID:        obj.UID,
-			}}
 
 			if err := r.Client.Create(ctx, statefulSet); err != nil {
 				log.Error(err, "Creating StatefulSet object")
 				return ctrl.Result{}, err
 			}
-		}
+		} else {
+			statefulSet.Spec.Replicas = obj.Spec.Replicas
+			statefulSet.Spec.Template.Spec.Containers = []v12.Container{{
+				Name:  req.NamespacedName.Name,
+				Image: obj.Spec.ContainerImage,
+			}}
 
-		statefulSet.Spec.Replicas = obj.Spec.Replicas
-		statefulSet.Spec.Template.Spec.Containers = []v12.Container{{
-			Name:  req.NamespacedName.Name,
-			Image: obj.Spec.ContainerImage,
-		}}
-
-		if err := r.Client.Update(ctx, statefulSet); err != nil {
-			log.Error(err, "Updating StatefulSet object")
-			return ctrl.Result{}, err
+			if err := r.Client.Update(ctx, statefulSet); err != nil {
+				log.Error(err, "Updating StatefulSet object")
+				return ctrl.Result{}, err
+			}
 		}
 
 		workloadKind = statefulSet.Kind
 		workloadAPIVersion = statefulSet.APIVersion
 	}
 
-	obj.Status.Workload.Name = req.NamespacedName.Name
-	obj.Status.Workload.Namespace = req.NamespacedName.Namespace
-	obj.Status.Workload.Kind = workloadKind
-	obj.Status.Workload.APIVersion = workloadAPIVersion
-	if err := r.Client.Update(ctx, obj); err != nil {
+	obj.Status.Workload = examplesv1alpha1.CrossNamespaceObjectReference{
+		APIVersion: workloadAPIVersion,
+		Kind:       workloadKind,
+		Name:       req.NamespacedName.Name,
+		Namespace:  req.NamespacedName.Namespace,
+	}
+
+	if err := r.Client.Status().Update(ctx, obj); err != nil {
 		log.Error(err, "Updating workload status")
 		return ctrl.Result{}, err
 	}

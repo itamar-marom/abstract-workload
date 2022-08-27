@@ -46,7 +46,7 @@ type AbstractWorkloadStatus struct {
 // +kubebuilder:resource:shortName="aw"
 // +kubebuilder:printcolumn:name="Replicas",type=string,JSONPath=`.spec.replicas`
 // +kubebuilder:printcolumn:name="WorkloadType",type=string,JSONPath=`.spec.workloadType`
-// +kubebuilder:printcolumn:name="WorkloadType",type=string,JSONPath=`.status.workload.kind`
+// +kubebuilder:printcolumn:name="WorkloadKind",type=string,JSONPath=`.status.workload.kind`
 type AbstractWorkload struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -68,11 +68,11 @@ func init() {
 	SchemeBuilder.Register(&AbstractWorkload{}, &AbstractWorkloadList{})
 }
 
-type WorkloadType int64
+type WorkloadType string
 
 const (
-	Stateless WorkloadType = iota
-	Stateful
+	Stateless WorkloadType = StrStateless
+	Stateful  WorkloadType = StrStateful
 )
 
 const (
