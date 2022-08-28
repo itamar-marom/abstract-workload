@@ -22,7 +22,11 @@ import (
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -208,9 +212,26 @@ func (r *AbstractWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
+func (r *AbstractWorkloadReconciler) getAWForChildObject(workload client.Object) []reconcile.Request {
+	requests := []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name:      workload.GetName(),
+			Namespace: workload.GetNamespace(),
+		}}}
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *AbstractWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&examplesv1alpha1.AbstractWorkload{}).
+		Owns(&v1.Deployment{}).
+		Owns(&v1.StatefulSet{}).
+		Watches(
+			&source.Kind{Type: &v1.Deployment{}},
+			handler.EnqueueRequestsFromMapFunc(r.getAWForChildObject)).
+		Watches(
+			&source.Kind{Type: &v1.StatefulSet{}},
+			handler.EnqueueRequestsFromMapFunc(r.getAWForChildObject)).
 		Complete(r)
 }
