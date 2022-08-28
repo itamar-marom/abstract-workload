@@ -14,7 +14,6 @@ import (
 var _ = Describe("CronJob controller", func() {
 
 	// Define utility constants for object names and testing timeouts/durations and intervals.
-	var AbstractWorkloadReplica int32 = 2
 	const (
 		AbstractWorkloadName           = "test-stateless"
 		AbstractWorkloadNamespace      = "default"
@@ -24,26 +23,30 @@ var _ = Describe("CronJob controller", func() {
 		duration = time.Second * 10
 		interval = time.Second * 5
 	)
+	var (
+		deploymentLookupKey             = types.NamespacedName{Name: AbstractWorkloadName, Namespace: AbstractWorkloadNamespace}
+		abstractWorkloadLookupKey       = types.NamespacedName{Namespace: AbstractWorkloadNamespace, Name: AbstractWorkloadName}
+		AbstractWorkloadReplica   int32 = 2
+		abstractWorkload                = &v1alpha1.AbstractWorkload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      AbstractWorkloadName,
+				Namespace: AbstractWorkloadNamespace,
+			},
+			Spec: v1alpha1.AbstractWorkloadSpec{
+				Replicas:       &AbstractWorkloadReplica,
+				ContainerImage: AbstractWorkloadContainerImage,
+				WorkloadType:   v1alpha1.StrStateless,
+			},
+		}
+	)
 
 	Context("Lifecycle of stateless AbstractWorkload", func() {
 		It("Should manage Deployment object and update the AbstractWorkload status", func() {
 			By("By creating a new AbstractWorkload")
 			ctx := context.Background()
-			abstractWorkload := &v1alpha1.AbstractWorkload{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      AbstractWorkloadName,
-					Namespace: AbstractWorkloadNamespace,
-				},
-				Spec: v1alpha1.AbstractWorkloadSpec{
-					Replicas:       &AbstractWorkloadReplica,
-					ContainerImage: AbstractWorkloadContainerImage,
-					WorkloadType:   v1alpha1.StrStateless,
-				},
-			}
 			Expect(k8sClient.Create(ctx, abstractWorkload)).Should(Succeed())
 
 			By("Checking the created Deployment")
-			deploymentLookupKey := types.NamespacedName{Name: AbstractWorkloadName, Namespace: AbstractWorkloadNamespace}
 			createdDeployment := &v12.Deployment{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, deploymentLookupKey, createdDeployment)
@@ -52,54 +55,65 @@ var _ = Describe("CronJob controller", func() {
 				}
 				return true
 			}, timeout, interval).Should(BeTrue())
-			//Expect(&createdDeployment.Spec.Replicas).Should(Equal(&AbstractWorkloadReplica))
+
+			Expect(createdDeployment.Spec.Replicas).Should(Equal(abstractWorkload.Spec.Replicas))
 			Expect(createdDeployment.Spec.Template.Spec.Containers[0].Image).Should(Equal(AbstractWorkloadContainerImage))
 
-			By("Checking the AbstractWorkload's status")
-			abstractWorkloadLookupKey := types.NamespacedName{Namespace: AbstractWorkloadNamespace, Name: AbstractWorkloadName}
-			updatedAbstractWorkload := &v1alpha1.AbstractWorkload{}
-			Consistently(func() (string, error) {
-				err := k8sClient.Get(ctx, abstractWorkloadLookupKey, updatedAbstractWorkload)
-				if err != nil {
-					return "", err
-				}
-				return updatedAbstractWorkload.Status.Workload.Kind, nil
-			}, duration, interval).Should(Equal(createdDeployment.Kind))
-			//Expect(createdAbstractWorkload.Status.Workload.Kind).Should(Equal(createdDeployment.Kind))
+			//By("Checking the AbstractWorkload's status")
+			//statusAbstractWorkload := &v1alpha1.AbstractWorkload{}
+			//Eventually(func() string {
+			//	if err := k8sClient.Get(ctx, abstractWorkloadLookupKey, statusAbstractWorkload); err != nil {
+			//		return ""
+			//	}
+			//	return statusAbstractWorkload.Status.Workload.Kind
+			//}, duration, interval).Should(Equal(createdDeployment.Kind))
 
-			//By("Delete the Deployment and see that it being created again")
-			//err := k8sClient.Delete(ctx, createdDeployment)
-			//Expect(err).ToNot(HaveOccurred(), "failed to delete Deployment")
-			//newCreatedDeployment := &v12.Deployment{}
-			//Eventually(func() bool {
-			//	err := k8sClient.Get(ctx, deploymentLookupKey, newCreatedDeployment)
-			//	if err != nil {
-			//		return false
-			//	}
-			//	return true
-			//}, timeout, interval).Should(BeTrue())
-			//Expect(createdDeployment.Spec.Replicas).Should(Equal(AbstractWorkloadReplica))
-			//Expect(createdDeployment.Spec.Template.Spec.Containers[0].Image).Should(Equal(AbstractWorkloadContainerImage))
-			//
-			//By("Changing replicas number of AbstractWorkload and check Deployment")
-			//*createdAbstractWorkload.Spec.Replicas = 1
-			//err = k8sClient.Update(ctx, createdAbstractWorkload)
-			//Expect(err).ToNot(HaveOccurred(), "failed to update AbstractWorkload")
-			//Consistently(func() (*int32, error) {
-			//	err := k8sClient.Get(ctx, deploymentLookupKey, newCreatedDeployment)
-			//	if err != nil {
-			//		var badReplicas *int32
-			//		*badReplicas = -1
-			//		return badReplicas, err
-			//	}
-			//	return newCreatedDeployment.Spec.Replicas, nil
-			//}, duration, interval).Should(Equal(*createdAbstractWorkload.Spec.Replicas))
-			//
+			By("Delete the Deployment and see that it being created again")
+			Expect(k8sClient.Delete(ctx, createdDeployment)).Should(Succeed())
+			newCreatedDeployment := &v12.Deployment{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, deploymentLookupKey, newCreatedDeployment)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			Expect(newCreatedDeployment.Spec.Replicas).Should(Equal(abstractWorkload.Spec.Replicas))
+			Expect(newCreatedDeployment.Spec.Template.Spec.Containers[0].Image).Should(Equal(AbstractWorkloadContainerImage))
+
+			By("Changing replicas number of AbstractWorkload and check Deployment")
+			replicaAbstractWorkload := &v1alpha1.AbstractWorkload{}
+			replicaDeployment := &v12.Deployment{}
+
+			Expect(k8sClient.Get(ctx, abstractWorkloadLookupKey, replicaAbstractWorkload)).Should(Succeed())
+			*replicaAbstractWorkload.Spec.Replicas = 1
+			Expect(k8sClient.Update(ctx, replicaAbstractWorkload)).Should(Succeed())
+
+			Eventually(func() (*int32, error) {
+				err := k8sClient.Get(ctx, deploymentLookupKey, replicaDeployment)
+				if err != nil {
+					var badReplicas *int32
+					*badReplicas = -1
+					return badReplicas, err
+				}
+				return replicaDeployment.Spec.Replicas, nil
+			}, duration, interval).Should(Equal(replicaAbstractWorkload.Spec.Replicas))
+
 			//By("Deleting the AbstractWorkload and check Deployment is deleted")
-			//err = k8sClient.Delete(ctx, createdAbstractWorkload)
-			//Expect(err).ToNot(HaveOccurred(), "failed to delete AbstractWorkload")
+			//deleteAbstractWorkload := &v1alpha1.AbstractWorkload{}
+			//deleteDeployment := &v12.Deployment{}
+			//
+			//Expect(k8sClient.Get(ctx, abstractWorkloadLookupKey, deleteAbstractWorkload)).Should(Succeed())
+			//Expect(k8sClient.Delete(ctx, deleteAbstractWorkload)).Should(Succeed())
 			//Eventually(func() bool {
-			//	err := k8sClient.Get(ctx, deploymentLookupKey, newCreatedDeployment)
+			//	err := k8sClient.Get(ctx, abstractWorkloadLookupKey, deleteAbstractWorkload)
+			//	if err != nil {
+			//		return true
+			//	}
+			//	return false
+			//}, timeout, interval).Should(BeTrue())
+			//Eventually(func() bool {
+			//	err := k8sClient.Get(ctx, deploymentLookupKey, deleteDeployment)
 			//	if err != nil {
 			//		return true
 			//	}
