@@ -1,0 +1,54 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-examples-itamar-marom-v1alpha1-abstractworkload
+  failurePolicy: Fail
+  name: mabstractworkload.kb.io
+  rules:
+  - apiGroups:
+    - examples.itamar.marom
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - abstractworkloads
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-examples-itamar-marom-v1alpha1-abstractworkload
+  failurePolicy: Fail
+  name: vabstractworkload.kb.io
+  rules:
+  - apiGroups:
+    - examples.itamar.marom
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - abstractworkloads
+  sideEffects: None

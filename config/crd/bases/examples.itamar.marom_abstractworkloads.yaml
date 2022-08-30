@@ -56,8 +56,6 @@ spec:
                 type: string
             required:
             - containerImage
-            - replicas
-            - workloadType
             type: object
           status:
             description: AbstractWorkloadStatus defines the observed state of AbstractWorkload

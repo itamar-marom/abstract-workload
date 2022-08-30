@@ -26,11 +26,11 @@ import (
 
 // AbstractWorkloadSpec defines the desired state of AbstractWorkload
 type AbstractWorkloadSpec struct {
-	// +required
+	// +optional
 	Replicas *int32 `json:"replicas"`
 	// +required
 	ContainerImage string `json:"containerImage"`
-	// +required
+	// +optional
 	WorkloadType WorkloadType `json:"workloadType"`
 }
 

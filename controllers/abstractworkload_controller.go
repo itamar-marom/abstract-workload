@@ -50,6 +50,8 @@ type AbstractWorkloadReconciler struct {
 //+kubebuilder:rbac:groups=examples.itamar.marom,resources=abstractworkloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=examples.itamar.marom,resources=abstractworkloads/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=examples.itamar.marom,resources=abstractworkloads/finalizers,verbs=update
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
